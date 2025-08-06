@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "tap-dune"
+version = "0.1.0"
+description = "Singer tap for extracting data from Dune Analytics API"
+authors = ["Blueprint Data"]
+license = "Apache-2.0"
+packages = [
+    { include = "tap_dune" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+singer-sdk = "^0.36.0"
+requests = "^2.31.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+black = "^23.7.0"
+flake8 = "^6.1.0"
+
+[tool.poetry.scripts]
+tap-dune = "tap_dune.tap:TapDune.cli"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

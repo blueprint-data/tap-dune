@@ -1,0 +1,17 @@
+.env
+*.pyc
+__pycache__/
+*.egg-info/
+.eggs/
+build/
+dist/
+.coverage
+coverage.xml
+.pytest_cache/
+.python-version
+.DS_Store
+.venv/
+
+# Local configuration and generated files
+config.json
+catalog.json

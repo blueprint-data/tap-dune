@@ -1,0 +1,20 @@
+{
+    "api_key": "YOUR_DUNE_API_KEY",
+    "query_id": "YOUR_QUERY_ID",
+    "performance": "medium",
+    "query_parameters": [
+        {
+            "key": "date_from",
+            "value": "2025-08-01",
+            "replication_key": true
+        }
+    ],
+    "schema": {
+        "properties": {
+            "day": {"type": "string", "format": "date"},
+            "network": {"type": "string"},
+            "total_mana": {"type": "number"},
+            "total_usd": {"type": "number"}
+        }
+    }
+}
