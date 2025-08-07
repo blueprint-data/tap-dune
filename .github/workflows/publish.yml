@@ -4,13 +4,16 @@ on:
   push:
     branches: [ 'release' ]
 
+# Giving the workflow the permissions it needs
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
     concurrency: release
-    permissions:
-      id-token: write
-      contents: write
 
     steps:
     - uses: actions/checkout@v3
