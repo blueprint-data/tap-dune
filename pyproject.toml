@@ -41,10 +41,16 @@ branch = "main"
 upload_to_pypi = false  # We'll handle PyPI upload in our GitHub Action
 build_command = "pip install poetry && poetry build"
 commit_parser = "conventional"
-branches = [
-    "main",
-    "release"
-]
+branches = {
+    "main": {
+        "match": "main",
+        "prerelease": false
+    },
+    "release": {
+        "match": "release",
+        "prerelease": false
+    }
+}
 
 [tool.poetry.scripts]
 tap-dune = "tap_dune.tap:TapDune.cli"
