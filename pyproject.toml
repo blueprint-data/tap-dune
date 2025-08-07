@@ -32,6 +32,14 @@ pytest = "^7.4.0"
 black = "^23.7.0"
 flake8 = "^6.1.0"
 responses = "^0.25.0"
+python-semantic-release = "^8.3.0"
+
+[tool.semantic_release]
+version_variables = ["pyproject.toml:version"]
+branch = "main"
+upload_to_pypi = false  # We'll handle PyPI upload in our GitHub Action
+build_command = "pip install poetry && poetry build"
+commit_parser = "angular"
 
 [tool.poetry.scripts]
 tap-dune = "tap_dune.tap:TapDune.cli"

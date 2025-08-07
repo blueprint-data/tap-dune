@@ -1,16 +1,36 @@
-name: Publish to PyPI
+name: Release & Publish
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency: release
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Python Semantic Release
+      uses: python-semantic-release/python-semantic-release@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v4
