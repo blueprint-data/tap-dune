@@ -218,10 +218,13 @@ This project follows [Semantic Versioning](https://semver.org/) and uses [Conven
    - Create a GitHub release
    - Build and publish to PyPI
 
+   Note: Only commits following the [Conventional Commits](https://www.conventionalcommits.org/) format will trigger version updates.
+
 4. After successful release:
    - Create a PR from the release branch to main
    - This PR will contain all the version updates (CHANGELOG.md, version number)
    - Merge to keep main up-to-date with the latest release
+   - Note: Only blueprint-data team members can merge to main
 
 5. Clean up:
    ```bash
@@ -229,6 +232,14 @@ This project follows [Semantic Versioning](https://semver.org/) and uses [Conven
    git pull
    git branch -d release
    ```
+
+### Repository Permissions
+
+This repository follows these security practices:
+- Only blueprint-data team members can merge to main
+- All PRs require at least one review
+- All tests must pass before merging
+- Branch protection rules prevent bypassing these requirements
 
 ### Testing
 
