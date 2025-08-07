@@ -1,13 +1,11 @@
 """Stream type classes for tap-dune."""
 
-from typing import Any, Dict, List, Optional, Iterable
+from typing import Any, List, Optional, Iterable
 import time
-from datetime import datetime
 
 import requests
-from singer_sdk import typing as th
 from singer_sdk.streams import RESTStream
-from singer_sdk.exceptions import FatalAPIError, RetriableAPIError
+from singer_sdk.exceptions import FatalAPIError
 
 
 class DuneQueryStream(RESTStream):
@@ -18,6 +16,66 @@ class DuneQueryStream(RESTStream):
     is_sorted = True  # Assuming date-based parameters are sorted
     primary_keys = ["execution_id"]
     
+    def infer_schema_from_results(self, results: List[dict]) -> dict:
+        """Infer JSON Schema from query results.
+        
+        Args:
+            results: List of result rows from Dune query
+            
+        Returns:
+            JSON Schema definition for the results
+        """
+        properties = {}
+        
+        if not results:
+            return {"type": "object", "properties": properties}
+            
+        sample_row = results[0]
+        for key, value in sample_row.items():
+            if value is None:
+                # For null values, check other rows for a non-null value
+                for row in results[1:]:
+                    if row.get(key) is not None:
+                        value = row[key]
+                        break
+                if value is None:
+                    # If still null, default to string type
+                    properties[key] = {"type": "string"}
+                    continue
+            
+            if isinstance(value, bool):
+                properties[key] = {"type": "boolean"}
+            elif isinstance(value, int):
+                properties[key] = {"type": "integer"}
+            elif isinstance(value, float):
+                properties[key] = {"type": "number"}
+            elif isinstance(value, str):
+                # Try to detect date/datetime formats
+                try:
+                    from datetime import datetime
+                    datetime.strptime(value, "%Y-%m-%d")
+                    properties[key] = {"type": "string", "format": "date"}
+                except ValueError:
+                    try:
+                        datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f %Z")
+                        properties[key] = {"type": "string", "format": "date-time"}
+                    except ValueError:
+                        properties[key] = {"type": "string"}
+            elif isinstance(value, (list, tuple)):
+                properties[key] = {
+                    "type": "array",
+                    "items": {"type": "string"}  # Simplified - could be enhanced
+                }
+            elif isinstance(value, dict):
+                properties[key] = {
+                    "type": "object",
+                    "properties": {}  # Simplified - could be enhanced
+                }
+            else:
+                properties[key] = {"type": "string"}
+                
+        return {"type": "object", "properties": properties}
+
     def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, **kwargs):
         """Initialize the stream.
         
@@ -27,7 +85,7 @@ class DuneQueryStream(RESTStream):
             query_id: The Dune query ID
             schema: The stream schema (from query results)
         """
-        self._schema = schema
+        self.query_id = query_id
         
         # Find replication key from parameters if any is configured
         for param in tap.config.get("query_parameters", []):
@@ -35,8 +93,72 @@ class DuneQueryStream(RESTStream):
                 self.replication_key = param["key"]
                 break
         
-        super().__init__(tap, name=name, schema=schema, **kwargs)
-        self.query_id = query_id
+        # If schema not provided, fetch a sample and infer it
+        if not schema and tap.config.get("schema") is None:
+            # Execute query to get sample results
+            url = f"{tap.config['base_url']}/query/{query_id}/execute"
+            headers = {"x-dune-api-key": tap.config["api_key"]}
+            params = {
+                "performance": tap.config.get("performance", "medium")
+            }
+            
+            # Add query parameters if any
+            if tap.config.get("query_parameters"):
+                params["query_parameters"] = {
+                    p["key"]: p["value"] 
+                    for p in tap.config["query_parameters"]
+                }
+            
+            response = requests.post(url, headers=headers, json=params)
+            if response.status_code != 200:
+                raise FatalAPIError(f"Failed to execute query: {response.text}")
+                
+            execution_id = response.json()["execution_id"]
+            
+            # Wait for query completion
+            while True:
+                status_response = requests.get(
+                    f"{tap.config['base_url']}/execution/{execution_id}/status",
+                    headers=headers
+                )
+                status_data = status_response.json()
+                
+                if status_data["state"] == "QUERY_STATE_COMPLETED":
+                    break
+                elif status_data["state"] in ["QUERY_STATE_FAILED", "QUERY_STATE_CANCELLED"]:
+                    raise FatalAPIError(f"Query execution failed: {status_data.get('error')}")
+                
+                time.sleep(2)
+            
+            # Get results
+            results_response = requests.get(
+                f"{tap.config['base_url']}/execution/{execution_id}/results",
+                headers=headers
+            )
+            results_data = results_response.json()
+            
+            # Infer schema from results
+            schema = self.infer_schema_from_results(results_data["result"]["rows"])
+        elif tap.config.get("schema"):
+            schema = tap.config["schema"]
+            
+        # Add execution metadata to schema
+        execution_metadata = {
+            "execution_id": {"type": "string"},
+            "execution_time": {"type": "string", "format": "date-time"}
+        }
+        
+        # Create final schema with execution metadata
+        final_schema = {
+            "type": "object",
+            "properties": {
+                **execution_metadata,
+                **(schema.get("properties", {}) if schema else {})
+            }
+        }
+        
+        self._schema = final_schema
+        super().__init__(tap, name=name, schema=final_schema, **kwargs)
     
     @property
     def schema(self) -> dict:

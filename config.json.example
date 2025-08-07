@@ -8,13 +8,14 @@
             "value": "2025-08-01",
             "replication_key": true
         }
-    ],
-    "schema": {
-        "properties": {
-            "day": {"type": "string", "format": "date"},
-            "network": {"type": "string"},
-            "total_mana": {"type": "number"},
-            "total_usd": {"type": "number"}
-        }
-    }
+    ]
+    // Optional: explicitly define schema if automatic inference isn't sufficient
+    // "schema": {
+    //     "properties": {
+    //         "day": {"type": "string", "format": "date"},
+    //         "network": {"type": "string"},
+    //         "total_mana": {"type": "number"},
+    //         "total_usd": {"type": "number"}
+    //     }
+    // }
 }

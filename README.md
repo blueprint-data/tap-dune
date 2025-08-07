@@ -7,6 +7,7 @@ This tap:
 - Extracts data from specified Dune queries
 - Produces [Singer](https://github.com/singer-io/getting-started/blob/master/docs/SPEC.md) formatted data following the Singer spec
 - Supports incremental replication using query parameters
+- Automatically infers schema from query results
 
 ## Installation
 
@@ -47,15 +48,7 @@ poetry run tap-dune --about
             "value": "2025-08-01",
             "replication_key": true
         }
-    ],
-    "schema": {
-        "properties": {
-            "day": {"type": "string", "format": "date"},
-            "network": {"type": "string"},
-            "total_mana": {"type": "number"},
-            "total_usd": {"type": "number"}
-        }
-    }
+    ]
 }
 ```
 
@@ -67,7 +60,7 @@ poetry run tap-dune --about
 | `query_id` | Yes | The ID of the Dune query to execute |
 | `performance` | No | Query execution performance tier: 'medium' (10 credits) or 'large' (20 credits). Defaults to 'medium' |
 | `query_parameters` | No | Array of parameters to pass to your Dune query |
-| `schema` | Yes | JSON Schema definition of your query's output fields |
+| `schema` | No | Optional: JSON Schema definition of your query's output fields. If not provided, schema will be inferred from query results |
 
 #### Query Parameters
 
@@ -78,9 +71,34 @@ Each query parameter object can have:
 
 #### Schema Configuration
 
-The `schema` section must define all fields that your Dune query returns. Each field should specify:
+The schema can be:
+1. Automatically inferred from query results (recommended)
+2. Explicitly defined in the config file
+
+When automatically inferring the schema:
+- The tap will execute the query once to get sample data
+- Data types are detected based on the values in the results
+- Special formats like dates and timestamps are automatically recognized
+- Null values are handled by looking at other rows to determine the correct type
+- If a type cannot be determined, it defaults to string
+
+If you need to explicitly define the schema, each field should specify:
 - `type`: The data type ('string', 'number', 'integer', 'boolean', 'object', 'array')
 - `format` (optional): Special format for string fields (e.g., 'date', 'date-time')
+
+Example of explicit schema configuration:
+```json
+{
+    "schema": {
+        "properties": {
+            "day": {"type": "string", "format": "date"},
+            "network": {"type": "string"},
+            "total_mana": {"type": "number"},
+            "total_usd": {"type": "number"}
+        }
+    }
+}
+```
 
 ### Source Authentication and Authorization
 
