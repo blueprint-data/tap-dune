@@ -12,10 +12,7 @@ This tap:
 ## Installation
 
 ```bash
-pipx install poetry
-git clone https://github.com/your-username/tap-dune.git
-cd tap-dune
-poetry install
+pip install tap-dune
 ```
 
 ## Configuration
@@ -25,7 +22,7 @@ poetry install
 A full list of supported settings and capabilities is available by running:
 
 ```bash
-poetry run tap-dune --about
+tap-dune --about
 ```
 
 ### Config File Setup
@@ -112,12 +109,12 @@ Example of explicit schema configuration:
 
 1. Generate a catalog file:
    ```bash
-   poetry run tap-dune --config config.json --discover > catalog.json
+   tap-dune --config config.json --discover > catalog.json
    ```
 
 2. Run the tap:
    ```bash
-   poetry run tap-dune --config config.json --catalog catalog.json
+   tap-dune --config config.json --catalog catalog.json
    ```
 
 ### Incremental Replication
@@ -134,7 +131,7 @@ You can easily run `tap-dune` in a pipeline using [Meltano](https://meltano.com/
 
 Example with `target-jsonl`:
 ```bash
-poetry run tap-dune --config config.json --catalog catalog.json | target-jsonl
+tap-dune --config config.json --catalog catalog.json | target-jsonl
 ```
 
 ## Development
@@ -142,9 +139,96 @@ poetry run tap-dune --config config.json --catalog catalog.json | target-jsonl
 ### Initialize your Development Environment
 
 ```bash
+# Clone the repository
+git clone https://github.com/blueprint-data/tap-dune.git
+cd tap-dune
+
+# Install Poetry
 pipx install poetry
+
+# Install dependencies
 poetry install
 ```
+
+### Development Workflow
+
+This project follows [Semantic Versioning](https://semver.org/) and uses [Conventional Commits](https://www.conventionalcommits.org/) for automatic versioning.
+
+1. Create a feature branch:
+   ```bash
+   git checkout -b feat/your-feature
+   # or
+   git checkout -b fix/your-bugfix
+   ```
+
+2. Make your changes and commit using conventional commits:
+   ```bash
+   # For new features
+   git commit -m "feat: add new feature X"
+
+   # For bug fixes
+   git commit -m "fix: resolve issue with Y"
+
+   # For breaking changes
+   git commit -m "feat: redesign API
+
+   BREAKING CHANGE: This changes the API interface"
+   ```
+
+   Commit types:
+   - `feat`: A new feature (minor version bump)
+   - `fix`: A bug fix (patch version bump)
+   - `docs`: Documentation only changes
+   - `style`: Changes that don't affect the code's meaning
+   - `refactor`: Code change that neither fixes a bug nor adds a feature
+   - `perf`: Code change that improves performance
+   - `test`: Adding missing tests
+   - `chore`: Changes to the build process or auxiliary tools
+   - `BREAKING CHANGE`: Any change that breaks backward compatibility (major version bump)
+
+3. Run tests:
+   ```bash
+   poetry run pytest
+   ```
+
+4. Create a pull request to main
+
+### Release Process
+
+1. Create a release branch from main:
+   ```bash
+   git checkout main
+   git pull
+   git checkout -b release
+   ```
+
+2. Push the branch:
+   ```bash
+   git push -u origin release
+   ```
+
+3. The release workflow will automatically:
+   - Analyze commits since last release
+   - Determine the next version number based on commit types:
+     - `fix:` → patch version (1.0.0 → 1.0.1)
+     - `feat:` → minor version (1.0.0 → 1.1.0)
+     - `BREAKING CHANGE:` → major version (1.0.0 → 2.0.0)
+   - Update CHANGELOG.md
+   - Create a git tag with the new version
+   - Create a GitHub release
+   - Build and publish to PyPI
+
+4. After successful release:
+   - Create a PR from the release branch to main
+   - This PR will contain all the version updates (CHANGELOG.md, version number)
+   - Merge to keep main up-to-date with the latest release
+
+5. Clean up:
+   ```bash
+   git checkout main
+   git pull
+   git branch -d release
+   ```
 
 ### Testing
 
