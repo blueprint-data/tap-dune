@@ -76,7 +76,7 @@ class DuneQueryStream(RESTStream):
                 
         return {"type": "object", "properties": properties}
 
-    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, **kwargs):
+    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, **kwargs):
         """Initialize the stream.
         
         Args:
@@ -84,14 +84,66 @@ class DuneQueryStream(RESTStream):
             name: The stream name
             query_id: The Dune query ID
             schema: The stream schema (from query results)
+            replication_key: The replication key field name
+            replication_key_type: The type of the replication key (string, integer, number, date, date-time)
         """
         self.query_id = query_id
+        self.replication_key = replication_key
+        self.replication_key_type = replication_key_type
         
-        # Find replication key from parameters if any is configured
-        for param in tap.config.get("query_parameters", []):
+    def get_replication_key_value(self, context: Optional[dict]) -> Any:
+        """Get the current replication key value from query parameters.
+        
+        Args:
+            context: Stream partition or context dictionary.
+            
+        Returns:
+            The current value of the replication key.
+        """
+        if not self.replication_key:
+            return None
+            
+        # Get the current value from state if available
+        current_value = self.get_starting_replication_key_value(context)
+        if current_value:
+            return current_value
+            
+        # Otherwise get the initial value from query parameters
+        for param in self.config.get("query_parameters", []):
             if param.get("replication_key"):
-                self.replication_key = param["key"]
-                break
+                value = param["value"]
+                # Convert value based on type if specified
+                param_type = param.get("type", "string")
+                if param_type == "integer":
+                    return int(value)
+                elif param_type == "number":
+                    return float(value)
+                return value
+                
+        return None
+        
+    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, **kwargs):
+        """Initialize the stream.
+        
+        Args:
+            tap: The parent tap object
+            name: The stream name
+            query_id: The Dune query ID
+            schema: The stream schema (from query results)
+            replication_key: The replication key field name
+            replication_key_type: The type of the replication key (string, integer, number, date, date-time)
+        """
+        self.query_id = query_id
+        self.replication_key = replication_key
+        self.replication_key_type = replication_key_type
+        
+        # Set up replication key type
+        if replication_key_type in ["date", "date-time"]:
+            self.replication_key_jsonschema = {"type": "string", "format": replication_key_type}
+        elif replication_key_type in ["integer", "number"]:
+            self.replication_key_jsonschema = {"type": replication_key_type}
+        else:
+            self.replication_key_jsonschema = {"type": "string"}
         
         # If schema not provided, fetch a sample and infer it
         if not schema and tap.config.get("schema") is None:
@@ -158,6 +210,17 @@ class DuneQueryStream(RESTStream):
         }
         
         self._schema = final_schema
+
+        # Set replication key type based on parameter configuration
+        if self.replication_key:
+            if replication_key_type in ["date", "date-time"]:
+                self.replication_key_jsonschema = {"type": "string", "format": replication_key_type}
+            elif replication_key_type in ["integer", "number"]:
+                self.replication_key_jsonschema = {"type": replication_key_type}
+            else:
+                # Default to string type if no type is specified or type is string
+                self.replication_key_jsonschema = {"type": "string"}
+
         super().__init__(tap, name=name, schema=final_schema, **kwargs)
     
     @property
@@ -226,9 +289,14 @@ class DuneQueryStream(RESTStream):
         if query_params:
             params["query_parameters"] = query_params
         
-        self.logger.info(f"Request URL: {url}")
-        self.logger.info(f"Request Headers: {headers}")
-        self.logger.info(f"Request Body: {params}")
+        # Log request details without sensitive info
+        self.logger.info("Making request to Dune API", extra={
+            "url": url,
+            "params": {
+                **params,
+                "query_parameters": "***" if "query_parameters" in params else None
+            }
+        })
         
         request = requests.Request(
             method=http_method,
@@ -240,6 +308,37 @@ class DuneQueryStream(RESTStream):
     
     def get_next_page_token(self, response: requests.Response, previous_token: Optional[Any]) -> Optional[Any]:
         """No pagination in Dune query results."""
+        return None
+        
+    def get_replication_key_value(self, context: Optional[dict]) -> Any:
+        """Get the current replication key value from query parameters.
+        
+        Args:
+            context: Stream partition or context dictionary.
+            
+        Returns:
+            The current value of the replication key.
+        """
+        if not self.replication_key:
+            return None
+            
+        # Get the current value from state if available
+        current_value = self.get_starting_replication_key_value(context)
+        if current_value:
+            return current_value
+            
+        # Otherwise get the initial value from query parameters
+        for param in self.config.get("query_parameters", []):
+            if param.get("replication_key"):
+                value = param["value"]
+                # Convert value based on type if specified
+                param_type = param.get("type", "string")
+                if param_type == "integer":
+                    return int(value)
+                elif param_type == "number":
+                    return float(value)
+                return value
+                
         return None
     
     def parse_response(self, response: requests.Response) -> Iterable[dict]:
@@ -282,12 +381,102 @@ class DuneQueryStream(RESTStream):
             row["execution_id"] = execution_id
             row["execution_time"] = results_data.get("execution_ended_at")
             
-            # Add replication key value if configured
+            # Add replication key to row for SDK but filter it out in post_process
             if self.replication_key:
                 # Find the replication key parameter value
                 for param in self.config.get("query_parameters", []):
                     if param.get("replication_key"):
-                        row[self.replication_key] = param["value"]
+                        value = param["value"]
+                        # Convert value based on type if specified
+                        param_type = param.get("type", "string")
+                        if param_type == "integer":
+                            value = int(value)
+                        elif param_type == "number":
+                            value = float(value)
+                        row[self.replication_key] = value
                         break
+            
+            yield row
+            
+    def get_url_params(self, context: Optional[dict], next_page_token: Optional[Any]) -> dict:
+        """Return a dictionary of values to be used in URL parameterization.
+
+        Args:
+            context: Stream partition or context dictionary.
+            next_page_token: Value used to get the next page of records.
+
+        Returns:
+            A dictionary of URL query parameters.
+        """
+        params = {
+            "performance": self.config.get("performance", "medium")
+        }
+
+        # Add query parameters if any
+        query_params = {}
+        for param in self.config.get("query_parameters", []):
+            key = param["key"]
+            value = param["value"]
+            
+            # If this is a replication key parameter, use the state value if available
+            if param.get("replication_key"):
+                starting_value = self.get_starting_replication_key_value(context)
+                if starting_value:
+                    value = starting_value
+            
+            query_params[key] = value
+        
+        if query_params:
+            params["query_parameters"] = query_params
+
+        return params
+
+    def get_records(self, context: Optional[dict]) -> Iterable[dict]:
+        """Return a generator of record-type dictionary objects.
+        
+        Args:
+            context: Stream partition or context dictionary.
+            
+        Yields:
+            One item per (possibly processed) record in the API.
+        """
+        # Get the replication key field mapping if any
+        replication_field = None
+        if self.replication_key:
+            for param in self.config.get("query_parameters", []):
+                if param.get("replication_key"):
+                    replication_field = param.get("replication_key_field")
+                    break
+
+        # Process records from the API
+        for row in super().get_records(context):
+            # Map the replication key field from results to the parameter key
+            if self.replication_key and replication_field:
+                if replication_field not in row:
+                    self.logger.warning(
+                        f"Replication key field '{replication_field}' not found in record",
+                        extra={"record": row}
+                    )
+                else:
+                    # Get the value from the result field
+                    value = row[replication_field]
+                    # For date fields, ensure correct format
+                    if isinstance(value, str) and self.replication_key_type in ["date", "date-time"]:
+                        try:
+                            from datetime import datetime
+                            # Parse the date
+                            dt = datetime.strptime(value, "%Y-%m-%d")
+                            # Keep original format for 'date' type, use ISO for 'date-time'
+                            if self.replication_key_type == "date":
+                                value = dt.strftime("%Y-%m-%d")
+                            else:
+                                value = dt.isoformat()
+                        except ValueError:
+                            self.logger.warning(
+                                f"Could not parse date value '{value}' from field '{replication_field}'",
+                                extra={"record": row}
+                            )
+                    # Add the replication key to the record
+                    row[self.replication_key] = value
             
             yield row

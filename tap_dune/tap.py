@@ -46,6 +46,11 @@ class TapDune(Tap):
                     th.Property("value", th.StringType, required=True, description="Parameter value"),
                     th.Property("replication_key", th.BooleanType, required=False, default=False, 
                               description="Whether this parameter should be used for incremental replication"),
+                    th.Property("replication_key_field", th.StringType, required=False,
+                              description="The field in the query results to use for tracking replication state"),
+                    th.Property("type", th.StringType, required=False, default="string",
+                              allowed_values=["string", "integer", "number", "date", "date-time"],
+                              description="The data type of the parameter value"),
                 )
             ),
             required=False,
@@ -86,13 +91,11 @@ class TapDune(Tap):
         """Return a list of discovered streams."""
         # Find the replication key parameter if any
         replication_key = None
-        replication_key_format = None
+        replication_key_type = None
         for param in self.config.get("query_parameters", []):
             if param.get("replication_key"):
                 replication_key = param["key"]
-                # Try to determine the format from the schema if available
-                if self.config.get("schema") and replication_key in self.config["schema"].get("properties", {}):
-                    replication_key_format = self.config["schema"]["properties"][replication_key].get("format")
+                replication_key_type = param.get("type", "string")
                 break
 
         # Create base schema with execution metadata fields
@@ -100,6 +103,16 @@ class TapDune(Tap):
             "execution_id": {"type": "string"},
             "execution_time": {"type": "string", "format": "date-time"}
         }
+
+        # Add replication key to schema (required by SDK) but we won't include it in output
+        if replication_key:
+            # Convert parameter type to schema type
+            if replication_key_type in ["date", "date-time"]:
+                execution_metadata[replication_key] = {"type": "string", "format": replication_key_type}
+            elif replication_key_type in ["integer", "number"]:
+                execution_metadata[replication_key] = {"type": replication_key_type}
+            else:
+                execution_metadata[replication_key] = {"type": "string"}
 
         # Add fields from config schema if provided, else infer from query results
         if self.config.get("schema"):
@@ -126,41 +139,167 @@ class TapDune(Tap):
                     for p in self.config["query_parameters"]
                 }
             
-            response = requests.post(url, headers=headers, json=params)
-            if response.status_code != 200:
-                raise FatalAPIError(f"Failed to execute query: {response.text}")
+            try:
+                # Log the full request details
+                self.logger.info("Executing Dune query", extra={
+                    "request": {
+                        "method": "POST",
+                        "url": url,
+                        "headers": {
+                            **headers,
+                            "x-dune-api-key": "***"  # Mask the API key
+                        },
+                        "params": params
+                    },
+                    "query_id": self.config["query_id"]
+                })
                 
-            execution_id = response.json()["execution_id"]
+                response = requests.post(url, headers=headers, json=params)
+                self.logger.debug("Query execution response", extra={
+                    "response": {
+                        "status_code": response.status_code,
+                        "body": response.text
+                    }
+                })
+                response.raise_for_status()  # Raises HTTPError for 4XX/5XX status codes
+                response_data = response.json()
+                
+                if "execution_id" not in response_data:
+                    error_msg = response_data.get("error", "No execution ID returned")
+                    self.logger.error("Failed to get execution ID", extra={
+                        "response": response_data,
+                        "error": error_msg
+                    })
+                    raise FatalAPIError(f"Failed to execute query: {error_msg}")
+                    
+                execution_id = response_data["execution_id"]
+                self.logger.info("Query execution started", extra={
+                    "execution_id": execution_id
+                })
+            except requests.exceptions.RequestException as e:
+                self.logger.error("Query execution request failed", extra={
+                    "error": str(e),
+                    "url": url,
+                    "params": params
+                })
+                raise FatalAPIError(f"Failed to execute query: {str(e)}")
             
             # Wait for query completion
             while True:
-                status_response = requests.get(
-                    f"{self.config['base_url']}/execution/{execution_id}/status",
-                    headers=headers
-                )
-                status_data = status_response.json()
-                
-                if status_data["state"] == "QUERY_STATE_COMPLETED":
-                    break
-                elif status_data["state"] in ["QUERY_STATE_FAILED", "QUERY_STATE_CANCELLED"]:
-                    raise FatalAPIError(f"Query execution failed: {status_data.get('error')}")
-                
-                time.sleep(2)
+                try:
+                    status_url = f"{self.config['base_url']}/execution/{execution_id}/status"
+                    self.logger.debug("Checking query status", extra={
+                        "request": {
+                            "method": "GET",
+                            "url": status_url,
+                            "headers": {
+                                **headers,
+                                "x-dune-api-key": "***"  # Mask the API key
+                            }
+                        },
+                        "execution_id": execution_id
+                    })
+                    
+                    status_response = requests.get(status_url, headers=headers)
+                    self.logger.debug("Status check response", extra={
+                        "response": {
+                            "status_code": status_response.status_code,
+                            "body": status_response.text
+                        }
+                    })
+                    status_response.raise_for_status()
+                    status_data = status_response.json()
+                    
+                    if "state" not in status_data:
+                        self.logger.error("Invalid status response", extra={
+                            "response": status_data
+                        })
+                        raise FatalAPIError("Invalid status response: missing state field")
+                    
+                    state = status_data["state"]
+                    self.logger.debug("Query status", extra={
+                        "execution_id": execution_id,
+                        "state": state
+                    })
+                    
+                    if state == "QUERY_STATE_COMPLETED":
+                        self.logger.info("Query execution completed", extra={
+                            "execution_id": execution_id
+                        })
+                        break
+                    elif state in ["QUERY_STATE_FAILED", "QUERY_STATE_CANCELLED"]:
+                        error_msg = status_data.get("error")
+                        if error_msg:
+                            self.logger.error("Query execution failed", extra={
+                                "execution_id": execution_id,
+                                "error": error_msg
+                            })
+                            raise FatalAPIError(f"Query execution failed: {error_msg}")
+                        else:
+                            # Check for additional error information
+                            error_type = status_data.get("error_type", "Unknown error type")
+                            error_details = status_data.get("error_details", "No details available")
+                            self.logger.error("Query execution failed", extra={
+                                "execution_id": execution_id,
+                                "error_type": error_type,
+                                "error_details": error_details
+                            })
+                            raise FatalAPIError(f"Query execution failed: {error_type} - {error_details}")
+                    
+                    time.sleep(2)
+                except requests.exceptions.RequestException as e:
+                    self.logger.error("Failed to check query status", extra={
+                        "execution_id": execution_id,
+                        "error": str(e)
+                    })
+                    raise FatalAPIError(f"Failed to check query status: {str(e)}")
             
             # Get results
-            results_response = requests.get(
-                f"{self.config['base_url']}/execution/{execution_id}/results",
-                headers=headers
-            )
-            results_data = results_response.json()
-            
-            # Create schema with execution metadata
-            schema = {
-                "type": "object",
-                "properties": {
-                    **execution_metadata
+            try:
+                results_url = f"{self.config['base_url']}/execution/{execution_id}/results"
+                self.logger.debug("Fetching query results", extra={
+                    "request": {
+                        "method": "GET",
+                        "url": results_url,
+                        "headers": {
+                            **headers,
+                            "x-dune-api-key": "***"  # Mask the API key
+                        }
+                    },
+                    "execution_id": execution_id
+                })
+                
+                results_response = requests.get(results_url, headers=headers)
+                self.logger.debug("Results fetch response", extra={
+                    "response": {
+                        "status_code": results_response.status_code,
+                        "body": results_response.text
+                    }
+                })
+                results_response.raise_for_status()
+                results_data = results_response.json()
+                
+                if "result" not in results_data or "rows" not in results_data["result"]:
+                    self.logger.error("Invalid results response", extra={
+                        "execution_id": execution_id,
+                        "response": results_data
+                    })
+                    raise FatalAPIError("Invalid results response: missing result data")
+                
+                self.logger.info("Query results fetched", extra={
+                    "execution_id": execution_id,
+                    "row_count": len(results_data["result"]["rows"])
+                })
+                
+                # Create schema with execution metadata
+                schema = {
+                    "type": "object",
+                    "properties": {
+                        **execution_metadata
+                    }
                 }
-            }
+            except requests.exceptions.RequestException as e:
+                raise FatalAPIError(f"Failed to fetch query results: {str(e)}")
 
             # Infer schema from results
             if results_data["result"]["rows"]:
@@ -207,23 +346,14 @@ class TapDune(Tap):
                     else:
                         schema["properties"][key] = {"type": "string"}
 
-        # Add replication key field if not already in schema
-        if replication_key and replication_key not in schema["properties"]:
-            schema["properties"][replication_key] = {
-                "type": "string",
-                "format": replication_key_format or "date-time"  # Default to date-time if format not specified
-            }
-        
         # Create stream with schema and replication key
         stream = DuneQueryStream(
             tap=self,
             name="dune_query",
             query_id=self.config["query_id"],
-            schema=schema
+            schema=schema,
+            replication_key=replication_key,
+            replication_key_type=replication_key_type
         )
-
-        # Set replication key if found
-        if replication_key:
-            stream.replication_key = replication_key
 
         return [stream]

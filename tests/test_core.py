@@ -22,7 +22,9 @@ def mock_config() -> Dict:
             {
                 "key": "date_from",
                 "value": "2025-08-01",
-                "replication_key": True
+                "type": "date",
+                "replication_key": True,
+                "replication_key_field": "day"
             }
         ]
     }
@@ -158,6 +160,16 @@ def test_replication_key(mock_config, mock_api_responses):
 
         stream = streams[0]
         assert stream.replication_key == "date_from"
+        assert stream.replication_key_type == "date"
+        
+        # Get records to test replication key mapping
+        records = list(stream.get_records(None))
+        assert len(records) > 0
+        
+        # Check that replication key is mapped from the result field
+        for record in records:
+            assert "date_from" in record
+            assert record["date_from"] == record["day"]
 
 
 def test_query_parameters(mock_config, mock_api_responses):
