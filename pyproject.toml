@@ -4,6 +4,20 @@ version = "0.1.0"
 description = "Singer tap for extracting data from Dune Analytics API"
 authors = ["Blueprint Data"]
 license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/blueprint-data/tap-dune"
+repository = "https://github.com/blueprint-data/tap-dune"
+keywords = ["singer", "tap", "dune", "analytics", "meltano"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
 packages = [
     { include = "tap_dune" },
 ]
@@ -17,6 +31,7 @@ requests = "^2.31.0"
 pytest = "^7.4.0"
 black = "^23.7.0"
 flake8 = "^6.1.0"
+responses = "^0.25.0"
 
 [tool.poetry.scripts]
 tap-dune = "tap_dune.tap:TapDune.cli"
