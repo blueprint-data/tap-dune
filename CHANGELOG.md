@@ -2,6 +2,27 @@
 
 
 
+## v0.3.0 (2025-08-07)
+
+### Feature
+
+* feat: replication ([`ade05c9`](https://github.com/blueprint-data/tap-dune/commit/ade05c9c2bc267dc27ecc994f8ff25c6ee1906f0))
+
+### Fix
+
+* fix: adjust release workflo ([`7380327`](https://github.com/blueprint-data/tap-dune/commit/738032733466f712be29163678921ea0c985527f))
+
+### Unknown
+
+* Merge pull request #6 from blueprint-data/fix/extraction
+
+feat: replication ([`2d23382`](https://github.com/blueprint-data/tap-dune/commit/2d233824ca1ec5223ef91c43f2012899bb874aec))
+
+* Merge pull request #5 from blueprint-data/release
+
+fix: release ([`498bcb6`](https://github.com/blueprint-data/tap-dune/commit/498bcb6673301be4c95e4bf6998cc26f7ffa05f8))
+
+
 ## v0.2.1 (2025-08-07)
 
 ### Fix
