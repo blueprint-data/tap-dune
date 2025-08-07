@@ -36,21 +36,20 @@ python-semantic-release = "^8.3.0"
 
 [tool.semantic_release]
 version_variables = ["pyproject.toml:version"]
+version_toml = ["pyproject.toml:version"]
 major_on_zero = false
-branch = "main"
-upload_to_pypi = false  # We'll handle PyPI upload in our GitHub Action
+tag_format = "v{version}"
 build_command = "pip install poetry && poetry build"
-commit_parser = "conventional"
-branches = {
-    "main": {
-        "match": "main",
-        "prerelease": false
-    },
-    "release": {
-        "match": "release",
-        "prerelease": false
-    }
-}
+upload_to_repository = false
+commit_message = "chore: release {version} [skip ci]"
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.release]
+match = "release"
+prerelease = false
 
 [tool.poetry.scripts]
 tap-dune = "tap_dune.tap:TapDune.cli"
