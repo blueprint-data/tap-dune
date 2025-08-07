@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tap-dune"
-version = "0.1.0"
+version = "0.2.0"
 description = "Singer tap for extracting data from Dune Analytics API"
 authors = ["Blueprint Data"]
 license = "Apache-2.0"

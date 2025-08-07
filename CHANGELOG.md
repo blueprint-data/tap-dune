@@ -2,6 +2,13 @@
 
 
 
+## v0.2.0 (2025-08-07)
+
+### Feature
+
+* feat: add automatic schema inference from query results ([`42cf0f8`](https://github.com/blueprint-data/tap-dune/commit/42cf0f8989fecb9684f69fceb6786893286b1e94))
+
+
 ## v0.1.0 (2025-08-07)
 
 ### Chore
