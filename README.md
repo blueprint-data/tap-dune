@@ -43,7 +43,9 @@ tap-dune --about
         {
             "key": "date_from",
             "value": "2025-08-01",
-            "replication_key": true
+            "type": "date",
+            "replication_key": true,
+            "replication_key_field": "day"
         }
     ]
 }
@@ -65,6 +67,13 @@ Each query parameter object can have:
 - `key`: Parameter name in your Dune query
 - `value`: Parameter value
 - `replication_key`: Set to `true` for the parameter that should be used for incremental replication
+- `replication_key_field`: The field in the query results to use for tracking replication state (required if replication_key is true)
+- `type`: The data type of the parameter value. Can be one of:
+  - `string` (default)
+  - `integer`
+  - `number`
+  - `date`
+  - `date-time`
 
 #### Schema Configuration
 
@@ -83,17 +92,58 @@ If you need to explicitly define the schema, each field should specify:
 - `type`: The data type ('string', 'number', 'integer', 'boolean', 'object', 'array')
 - `format` (optional): Special format for string fields (e.g., 'date', 'date-time')
 
-Example of explicit schema configuration:
+When using incremental replication, the schema configuration is particularly important for the replication key field:
+- The field's type in the schema determines how values are compared for incremental replication
+- You can specify any type that supports ordering (string, number, integer)
+- For date/time fields, you can add the appropriate format ('date' or 'date-time')
+
+Examples of query parameter configurations with different replication key types:
+
+1. Date-based replication (most common):
 ```json
 {
-    "schema": {
-        "properties": {
-            "day": {"type": "string", "format": "date"},
-            "network": {"type": "string"},
-            "total_mana": {"type": "number"},
-            "total_usd": {"type": "number"}
+    "api_key": "YOUR_DUNE_API_KEY",
+    "query_id": "YOUR_QUERY_ID",
+    "query_parameters": [
+        {
+            "key": "start_date",
+            "value": "2025-08-01",
+            "type": "date",
+            "replication_key": true
         }
-    }
+    ]
+}
+```
+
+2. Numeric replication (e.g., for block numbers):
+```json
+{
+    "api_key": "YOUR_DUNE_API_KEY",
+    "query_id": "YOUR_QUERY_ID",
+    "query_parameters": [
+        {
+            "key": "min_block",
+            "value": "1000000",
+            "type": "integer",
+            "replication_key": true
+        }
+    ]
+}
+```
+
+3. Timestamp replication:
+```json
+{
+    "api_key": "YOUR_DUNE_API_KEY",
+    "query_id": "YOUR_QUERY_ID",
+    "query_parameters": [
+        {
+            "key": "start_time",
+            "value": "2025-08-01T00:00:00Z",
+            "type": "date-time",
+            "replication_key": true
+        }
+    ]
 }
 ```
 
@@ -122,8 +172,44 @@ Example of explicit schema configuration:
 To use incremental replication:
 
 1. Mark one of your query parameters with `"replication_key": true`
-2. Ensure the parameter value is in a format that can be ordered (e.g., dates, timestamps)
+2. Ensure the parameter value is in a format that can be ordered (e.g., dates, timestamps, numbers)
 3. The tap will track the last value processed and resume from there in subsequent runs
+
+When using incremental replication, you need to configure:
+
+1. The query parameter that will be used for filtering (`replication_key: true`)
+2. The field in the query results that will be used for state tracking (`replication_key_field`)
+3. The data type of the parameter (`type`)
+
+For example, if your query:
+- Takes a `date_from` parameter for filtering
+- Returns records with a `day` field containing dates
+- You want to use that `day` field for tracking progress
+
+Your configuration would look like:
+```json
+{
+    "query_parameters": [
+        {
+            "key": "date_from",
+            "value": "2025-08-01",
+            "type": "date",
+            "replication_key": true,
+            "replication_key_field": "day"
+        }
+    ]
+}
+```
+
+The tap will:
+1. Use `date_from` to filter the query results
+2. Track the `day` field values from the results
+3. Use those values to set `date_from` in subsequent runs
+
+The parameter type can be:
+- `date` or `date-time` for date-based parameters
+- `integer` or `number` for numeric parameters
+- `string` (default) for text parameters
 
 ### Pipeline Usage
 
