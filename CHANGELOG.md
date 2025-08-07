@@ -2,6 +2,15 @@
 
 
 
+## v0.2.1 (2025-08-07)
+
+### Fix
+
+* fix: adjust release workflow permissions ([`45720f2`](https://github.com/blueprint-data/tap-dune/commit/45720f2afaca6ef7b54b4dd586143ff668b43b7d))
+
+* fix: release workflow ([`d5e1938`](https://github.com/blueprint-data/tap-dune/commit/d5e19384ede30ef2b69f5bef3cd05442a6f36607))
+
+
 ## v0.2.0 (2025-08-07)
 
 ### Feature
