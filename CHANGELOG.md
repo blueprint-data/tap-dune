@@ -2,6 +2,19 @@
 
 
 
+## v0.4.0 (2025-08-08)
+
+### Feature
+
+* feat: allow primary keys ([`8d0ecce`](https://github.com/blueprint-data/tap-dune/commit/8d0ecceb9ad9d5cfd49b450b7153e5cb890ad4a0))
+
+### Unknown
+
+* Merge pull request #7 from blueprint-data/feat/add-primary-keys
+
+feat: allow primary keys ([`bd8e52f`](https://github.com/blueprint-data/tap-dune/commit/bd8e52f7c060acc69176796e0a3b6e8350c55ec3))
+
+
 ## v0.3.0 (2025-08-07)
 
 ### Feature
