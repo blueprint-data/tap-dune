@@ -5,6 +5,7 @@ import time
 
 import requests
 from singer_sdk.streams import RESTStream
+from singer_sdk.pagination import SinglePagePaginator
 from singer_sdk.exceptions import FatalAPIError
 
 
@@ -311,9 +312,9 @@ class DuneQueryStream(RESTStream):
         )
         return request.prepare()
     
-    def get_next_page_token(self, response: requests.Response, previous_token: Optional[Any]) -> Optional[Any]:
-        """No pagination in Dune query results."""
-        return None
+    def get_new_paginator(self) -> SinglePagePaginator:
+        """Return paginator. Dune query results are single page."""
+        return SinglePagePaginator()
         
     def get_replication_key_value(self, context: Optional[dict]) -> Any:
         """Get the current replication key value from query parameters.
