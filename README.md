@@ -8,6 +8,7 @@ This tap:
 - Produces [Singer](https://github.com/singer-io/getting-started/blob/master/docs/SPEC.md) formatted data following the Singer spec
 - Supports incremental replication using query parameters
 - Automatically infers schema from query results
+ - Advertises configurable primary keys for correct upsert/dedup behavior in targets
 
 ## Installation
 
@@ -60,6 +61,7 @@ tap-dune --about
 | `performance` | No | Query execution performance tier: 'medium' (10 credits) or 'large' (20 credits). Defaults to 'medium' |
 | `query_parameters` | No | Array of parameters to pass to your Dune query |
 | `schema` | No | Optional: JSON Schema definition of your query's output fields. If not provided, schema will be inferred from query results |
+| `primary_keys` | No | Array of field names that uniquely identify each record. Used by targets for upsert/dedup |
 
 #### Query Parameters
 
@@ -104,6 +106,7 @@ Examples of query parameter configurations with different replication key types:
 {
     "api_key": "YOUR_DUNE_API_KEY",
     "query_id": "YOUR_QUERY_ID",
+    "primary_keys": ["date", "source"],
     "query_parameters": [
         {
             "key": "start_date",
@@ -219,6 +222,12 @@ Example with `target-jsonl`:
 ```bash
 tap-dune --config config.json --catalog catalog.json | target-jsonl
 ```
+
+When loading to a database target that performs upserts (e.g., Snowflake):
+
+- Set `primary_keys` in the tap config to the fields that uniquely identify a row in your query output (e.g., `["date", "source"]`).
+- Ensure your loader configuration (e.g., PipelineWise or Meltano target) uses the same primary keys for merge/upsert.
+- For append-only behavior, leave `primary_keys` empty and configure your loader for pure inserts.
 
 ## Development
 
