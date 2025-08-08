@@ -14,7 +14,8 @@ class DuneQueryStream(RESTStream):
     # We'll set these dynamically based on the query configuration
     replication_key = None
     is_sorted = True  # Assuming date-based parameters are sorted
-    primary_keys = ["execution_id"]
+    # Do not default to any primary key. Keys will be provided via tap config.
+    primary_keys: List[str] = []
     
     def infer_schema_from_results(self, results: List[dict]) -> dict:
         """Infer JSON Schema from query results.
@@ -76,7 +77,7 @@ class DuneQueryStream(RESTStream):
                 
         return {"type": "object", "properties": properties}
 
-    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, **kwargs):
+    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, primary_keys: Optional[List[str]] = None, **kwargs):
         """Initialize the stream.
         
         Args:
@@ -90,6 +91,8 @@ class DuneQueryStream(RESTStream):
         self.query_id = query_id
         self.replication_key = replication_key
         self.replication_key_type = replication_key_type
+        # Ensure primary keys come from config (or remain empty for append-only)
+        self.primary_keys = primary_keys or []
         
     def get_replication_key_value(self, context: Optional[dict]) -> Any:
         """Get the current replication key value from query parameters.
@@ -122,7 +125,7 @@ class DuneQueryStream(RESTStream):
                 
         return None
         
-    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, **kwargs):
+    def __init__(self, tap: Any, name: str, query_id: str, schema: dict = None, replication_key: str = None, replication_key_type: str = None, primary_keys: Optional[List[str]] = None, **kwargs):
         """Initialize the stream.
         
         Args:
@@ -136,6 +139,8 @@ class DuneQueryStream(RESTStream):
         self.query_id = query_id
         self.replication_key = replication_key
         self.replication_key_type = replication_key_type
+        # Ensure primary keys come from config (or remain empty for append-only)
+        self.primary_keys = primary_keys or []
         
         # Set up replication key type
         if replication_key_type in ["date", "date-time"]:

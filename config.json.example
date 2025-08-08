@@ -2,6 +2,7 @@
     "api_key": "YOUR_DUNE_API_KEY",
     "query_id": "YOUR_QUERY_ID",
     "performance": "medium",
+    "primary_keys": ["date", "source"],
     "query_parameters": [
         {
             "key": "date_from",

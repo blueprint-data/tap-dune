@@ -85,6 +85,15 @@ class TapDune(Tap):
             required=False,
             description="Optional: JSON Schema definition for the query result fields. If not provided, schema will be inferred from query results."
         ),
+        th.Property(
+            "primary_keys",
+            th.ArrayType(th.StringType),
+            required=False,
+            description=(
+                "List of fields that uniquely identify a record. "
+                "These will be advertised as key properties to targets for upsert/dedup."
+            ),
+        ),
     ).to_dict()
 
     def discover_streams(self) -> List[Stream]:
@@ -346,14 +355,18 @@ class TapDune(Tap):
                     else:
                         schema["properties"][key] = {"type": "string"}
 
-        # Create stream with schema and replication key
+        # Resolve primary keys from config (if provided)
+        primary_keys = self.config.get("primary_keys", [])
+
+        # Create stream with schema, replication key, and primary keys
         stream = DuneQueryStream(
             tap=self,
             name="dune_query",
             query_id=self.config["query_id"],
             schema=schema,
             replication_key=replication_key,
-            replication_key_type=replication_key_type
+            replication_key_type=replication_key_type,
+            primary_keys=primary_keys,
         )
 
         return [stream]
