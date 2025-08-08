@@ -36,7 +36,7 @@ python-semantic-release = "^8.3.0"
 [tool.semantic_release]
 version_variables = ["pyproject.toml:version"]
 version_toml = ["pyproject.toml:version"]
-major_on_zero = false
+major_on_zero = true
 tag_format = "v{version}"
 build_command = "pip install poetry && poetry build"
 upload_to_repository = false
