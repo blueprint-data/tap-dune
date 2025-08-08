@@ -2,6 +2,21 @@
 
 
 
+## v0.5.0 (2025-08-08)
+
+### Breaking
+
+* feat!: release breaking change ([`0263bf4`](https://github.com/blueprint-data/tap-dune/commit/0263bf46f8a930d5f9545dd4ffef9c07d0a8295b))
+
+### Unknown
+
+* Merge pull request #8 from blueprint-data/chore/bump-singer-sdk
+
+BREAKING CHANGE: bump singer sdk to 0.48 and remove support for Pytho… ([`ab0ebd9`](https://github.com/blueprint-data/tap-dune/commit/ab0ebd9021294deba6c66b1b8b0214a4fe82f7c3))
+
+* BREAKING CHANGE: bump singer sdk to 0.48 and remove support for Python 3.8 ([`99f7554`](https://github.com/blueprint-data/tap-dune/commit/99f7554dac88d67a11997545ee15cb70642f32c9))
+
+
 ## v0.4.0 (2025-08-08)
 
 ### Feature
