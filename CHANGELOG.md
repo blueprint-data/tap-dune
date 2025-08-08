@@ -2,6 +2,17 @@
 
 
 
+## v0.7.0 (2025-08-08)
+
+### Breaking
+
+* feat!: require Python &gt;=3.9 and bump singer-sdk to 0.48
+
+BREAKING CHANGE: Drop Python 3.8 support; CI now tests 3.9–3.11. ([`9158113`](https://github.com/blueprint-data/tap-dune/commit/9158113090869c562dcaa3c98ada54a94ff70086))
+
+* feat!: release breaking change ([`7860f45`](https://github.com/blueprint-data/tap-dune/commit/7860f45c90eae3a1566af2dfffb38ea3aa27fd8c))
+
+
 ## v0.6.0 (2025-08-08)
 
 ### Breaking
